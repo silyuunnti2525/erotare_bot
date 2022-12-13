@@ -224,13 +224,13 @@ foreach($dom['.title']->find('a') as $title_a)
 		$title = preg_replace("/http.:\/\/.+\/.{7}/", "", $title);	//URL表記を削除
 		$title = preg_replace("/[#@\/]/", "", $title);	//記号を削除
 		
-		
+		/*
 		//deepl二重変換
 		$result = $translator->translateText("$title", null, 'en-US');
 		//echo $result."<br>\n";
 		$result = $translator->translateText("$result", null, 'ja');
 		$title = $result;
-		
+		*/
 		
 		$title = preg_replace("/(.{3,9})\1+/", "", $title);	//3~9文字以上の連続した文字列を削除
 		$title = preg_replace("/[a-z]{4,20}/i", "", $title);	//4~20文字以上の英語文字列を削除

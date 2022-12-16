@@ -1,8 +1,9 @@
 <?php
 
-require_once '/home/dbldihnu/php/lib/vendor/autoload.php';
-require_once '/home/dbldihnu/php/lib/phpQuery-onefile.php';
-require_once '/home/dbldihnu/kirinuki-erotaro.com/wp/wp-load.php';
+require_once (dirname(__FILE__) . '/../../../../../php/lib/vendor/autoload.php');	//'/home/dbldihnu/php/lib/vendor/autoload.php';
+require_once (dirname(__FILE__) . '/../../../../../php/lib/phpQuery-onefile.php');	//'/home/dbldihnu/php/lib/phpQuery-onefile.php';
+require_once (dirname(__FILE__) . '/../../../wp-load.php');	//'/home/dbldihnu/kirinuki-erotaro.com/wp/wp-load.php';
+require_once (dirname(__FILE__) . '/../../../wp-admin/includes/image.php' );	//'/home/dbldihnu/kirinuki-erotaro.com/wp/wp-admin/includes/image.php'
 
 use DeepL\Translator;
 
@@ -347,7 +348,6 @@ foreach($dom['.title']->find('a') as $title_a)
 			'post_status'    => 'inherit'
 		];
 		$attach_id = wp_insert_attachment( $attachment, $file, $post_id );
-		require_once('/home/dbldihnu/kirinuki-erotaro.com/wp/wp-admin/includes/image.php' );
 		$attach_data = wp_generate_attachment_metadata( $attach_id, $file );
 		wp_update_attachment_metadata( $attach_id, $attach_data );
 		set_post_thumbnail( $post_id, $attach_id );
@@ -360,6 +360,4 @@ foreach($dom['.title']->find('a') as $title_a)
  		echo 'continue';
         $i++;
     }
-
-	echo "commit is done.";
 }

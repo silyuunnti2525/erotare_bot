@@ -1,17 +1,19 @@
 <?php
 
+//auto_post_test.phpから何回層上か？
 require_once (dirname(__FILE__) . '/../../../../../php/lib/vendor/autoload.php');	//'/home/dbldihnu/php/lib/vendor/autoload.php';
 require_once (dirname(__FILE__) . '/../../../../../php/lib/phpQuery-onefile.php');	//'/home/dbldihnu/php/lib/phpQuery-onefile.php';
 require_once (dirname(__FILE__) . '/../../../wp-load.php');	//'/home/dbldihnu/kirinuki-erotaro.com/wp/wp-load.php';
 require_once (dirname(__FILE__) . '/../../../wp-admin/includes/image.php' );	//'/home/dbldihnu/kirinuki-erotaro.com/wp/wp-admin/includes/image.php'
-
 use DeepL\Translator;
 
+//==================================================================
+// ↓cronで使うときはここからコピペする。↓
+//==================================================================
+		
 /* 変数定義-----------------------------------------------------------*/
 $url = "https://www.xvideos.com/?k=moonforce&sort=random";	//取得URL	
-//$url = "https://www.xvideos.com/?k=moonforce&sort=rating";	//取得URL	
-//$url = "https://www.xvideos.com/?k=moonforce&sort=relevance";	//取得URL	
-$num = 9;	// 表示させたい件数
+$num = 1;	// 表示させたい件数
 $i = 1;
 /*------------------------------------------------------------------ */
 	
@@ -23,8 +25,6 @@ $context = stream_context_create(array('ssl'=>array(
 libxml_set_streams_context($context);
 /*------------------------------------------------------------------ */
 	
-$authKey = "b312bd57-b9a3-9cc9-0dc5-c2078f600f5b:fx"; 
-$translator = new Translator($authKey);
 	
 function curl_get_contents( $url, $timeout = 120 ){
     $ch = curl_init();
@@ -39,6 +39,7 @@ function curl_get_contents( $url, $timeout = 120 ){
     return $result;
 }
 
+//記事重複時、continueでここに戻ってくるのでカテゴリーID変数を初期化。（初期化しないと重複毎にカテゴリーIDが追記されていく。）
 $category_id = "";
 $cat_match = "";
 // 投稿にあるすべてのカテゴリー名を繰り返し表示
@@ -58,9 +59,9 @@ function get_categories_foreach($cat_match, $category_id, $category_name){
 }
 
 //HTMLソースをまるごと取得
-	$HTMLData = curl_get_contents($url , 120);
-	//DOM変換して要素をオブジェクト化する
-	$dom = phpQuery::newDocument($HTMLData);
+$HTMLData = curl_get_contents($url , 120);
+//DOM変換して要素をオブジェクト化する
+$dom = phpQuery::newDocument($HTMLData);
 	
 //タイトル、サムネ、埋め込み動画を取得
 foreach($dom['.title']->find('a') as $title_a)
@@ -97,7 +98,10 @@ foreach($dom['.title']->find('a') as $title_a)
 		foreach($link_html_source->find('.copy-link.force-one-line')->find('input') as $iframe){
             $iframe = $iframe->getAttribute('value');
         }
-		$html = $thumb_html.$iframe;
+		
+		$title = preg_replace("/http.:\/\/.+\/.{7}/", "", $title);	//URL表記を削除
+		$html = $title."<br/><br/>".$thumb_html."<br/>※画像クリックでも元動画に飛べます。<br/><br/>".$iframe;
+		
 		//エロタレ記事重複チェック-----------------------------------------------------------
 		$api = "2dddab891e4d8f66fe0b88553f910622";
 		$link_encode = urlencode($link);
@@ -113,8 +117,8 @@ foreach($dom['.title']->find('a') as $title_a)
 			}
         }
 		
-		//同一サムネなら別記事を取得する。（投稿IDをぶん回してサムネリンクと一致したら記事取得しなおす）
-		$get_post_id = get_the_latest_ID();
+		//同一リンクorサムネなら別記事を取得する。（投稿IDをぶん回してサムネリンクと一致したら記事取得しなおす）
+		$get_post_id = get_the_latest_ID();	//最新の投稿IDを取得　※テーマのfunction.phpに関数記載。
 		for($id = 1656; $id <= $get_post_id; $id++){
 			if( get_post_status( $id ) ){	//投稿IDがあれば本文取得
 				$post_info = get_post( $id );
@@ -124,7 +128,7 @@ foreach($dom['.title']->find('a') as $title_a)
 				continue;
 			}
 			
-			if(preg_match('{'.$link.'}', $post_content)){	//元リンクが一致したら記事取得しなおす
+			if(preg_match('{'.$link.'}', $post_content) || preg_match('{'.$thumb_url.'}', $post_content)){	//元リンクorサムネが一致したら記事取得しなおす
 				echo "【wp投稿時のタイトル】：".$post_title."<br/>";
 				echo "【パーマリンク】：".get_permalink( $id )."<br/>";
 				
@@ -140,36 +144,17 @@ foreach($dom['.title']->find('a') as $title_a)
 					}
 				}
 				
-				echo "※error：過去記事で同一動画を掲載した。（元リンクが過去記事と一致）<br/>";
+				echo "※error：過去記事で同一動画を掲載した。（元リンクorサムネが過去記事と一致）<br/>";
 				continue 2;
 			}
-			else if(preg_match('{'.$thumb_url.'}', $post_content)){	//サムネリンクが一致したら記事取得しなおす
-				echo "【WPに投稿された時のタイトル】：".$post_title."<br/>";
-				echo "【パーマリンク】：".get_permalink( $id )."<br/>";
-				
-				foreach($json["pages"] as $item){
-					$erotare_title = $item["title"];
-					echo "【エロタレのタイトル】：".$erotare_title."<br/>";
-					if(preg_match('{'.$post_title.'}', $erotare_title)){
-						break;
-					}else{
-						echo "※過去にwpに投稿したが、同一動画としてエロタレに取得されなかった記事です。<br/>※タイトルを再変換して投稿しなおします。<br/>-----------↓タイトル変換後↓------------<br/>";
-						$title = $post_title;
-						goto endloop;
-					}
-				}
-				
-				echo "※error：過去記事で同一動画を掲載した。（サムネが過去記事と一致）<br/>";
-				continue 2;
-			}
-
 		}
 
         //-----------------------------------------------------------------------------------
 		
 		endloop:
-	
-		$array = [
+		
+		//カテゴリ検索に使う連想配列データベース
+		$database = [
 			/*０*/["巨乳","爆乳","おっぱい","胸","パイズリ","ぱいずり","ぽっちゃり","でかぱい","グラマー","スタイル","抜群","美貌","でか","カップ","グラビア","級","ボディ"," ムチムチ","モデル"],//巨乳８，５６
 			/*１*/["中出し","中に","出して",'腟内'],	//中出し４
 			/*２*/["熟女","五十路","おばさん","BBA"],	//熟女５３，５４
@@ -186,13 +171,12 @@ foreach($dom['.title']->find('a') as $title_a)
 			/*13*/['整体','マッサージ','ローション'],	//マッサージ１４
 			/*14*/['スケベ','淫乱','アクメ','ヤリマン','痴女']	//痴女２１
 		];
-		
 
-
+		// $database 中の単語がタイトル内の単語とヒットしたら該当するカテゴリを付与する。
 		$key_cnt = 0;
-		foreach($array as $keys){
-			foreach($keys as $vals){
-				if(preg_match('{'.$vals.'}i', $title)){
+		foreach($database as $keys){	// $database配列からkeyを取り出す 例）巨乳→中出し→熟女→...
+			foreach($keys as $vals){	// keyからvalueを取り出す。例）巨乳→爆乳→おっぱい...
+				if(preg_match('{'.$vals.'}i', $title)){	//タイトル中の単語とヒットする単語があれば、
 					switch($key_cnt){
 						case 0: $cat_match = ['巨乳','おっぱい']; list($category_id, $category_name) = get_categories_foreach($cat_match, $category_id, $category_name); break;
 						case 1: $cat_match = ['中出し']; list($category_id, $category_name) = get_categories_foreach($cat_match, $category_id, $category_name); break;
@@ -211,31 +195,31 @@ foreach($dom['.title']->find('a') as $title_a)
 						case 14: $cat_match = ['痴女']; list($category_id, $category_name) = get_categories_foreach($cat_match, $category_id, $category_name); break;
 						default: break;
 					}
-					break;
+					break;	//上記単語がヒットするか一周確認したらbreakする。例）文中に「巨乳」の単語が2つあった場合、if(preg_match('{'.$vals.'}i', $title)) が二回作動するのでその回避策。
 				}
 			}
-			$key_cnt++;
+			$key_cnt++;	//次のkeyを取り出す
 		}
 		
-		//括弧および括弧内の文章を削除
+		//【リライト前】のタイトル微調整（括弧および括弧内の文章、記号を削除）
 		$title = preg_replace("/\【.+?\】/", "", $title);	
 		$title = preg_replace("/\[.+?\]/", "", $title);
 		$title = preg_replace("/\『.+?\』/", "", $title);
-	
-		$title = preg_replace("/http.:\/\/.+\/.{7}/", "", $title);	//URL表記を削除
 		$title = preg_replace("/[#@\/]/", "", $title);	//記号を削除
 		
-		//deepl二重変換
-		$result = $translator->translateText("$title", null, 'en-US');
-		//echo $result."<br>\n";
-		$result = $translator->translateText("$result", null, 'ja');
+		//DeepLの二重変換リライトを行う。
+		$authKey = "b312bd57-b9a3-9cc9-0dc5-c2078f600f5b:fx"; 
+		$translator = new Translator($authKey);
+		$result = $translator->translateText("$title", null, 'en-US');	//英語へ変換
+		$result = $translator->translateText("$result", null, 'ja');	//日本語へ変換
 		$title = $result;
 		
+		//【リライト後】のタイトル微調整（文字の羅列の削除、読点をビックリマークへ）
 		$title = preg_replace("/(.{3,9})\1+/", "", $title);	//3~9文字以上の連続した文字列を削除
 		$title = preg_replace("/[a-z]{4,20}/i", "", $title);	//4~20文字以上の英語文字列を削除
 		$title = preg_replace("/。|!/", "！", $title);	//読点をビックリマークに変換
 	
-		//エロタレ記事重複チェック-----------------------------------------------------------
+		//エロタレ記事重複チェック（APIにタイトル情報含む）-----------------------------------------------------------
 		$title_encode = urlencode($title);
 		$erotare_url = "https://api.movie.eroterest.net/api_duplication/?key=".$api."&url=".$link_encode."&title=".$title_encode;
 		$json = curl_get_contents($erotare_url, 120); 
@@ -297,7 +281,7 @@ foreach($dom['.title']->find('a') as $title_a)
 		
  		/*ワードプレスに投稿---------------------------------------------------------*/
  		//function postToBlog($title,$html,$thumb_url,$category_id){
- 		    date_default_timezone_set('Asia/Tokyo');
+ 			date_default_timezone_set('Asia/Tokyo');
  			$time = date('H-i-s')."<br/>\n";
 			$wp_error = 0;
 			$my_post = array(
@@ -361,3 +345,7 @@ foreach($dom['.title']->find('a') as $title_a)
         $i++;
     }
 }
+
+//==================================================================
+// ↑cron使用時ここまでコピペ↑
+//==================================================================
